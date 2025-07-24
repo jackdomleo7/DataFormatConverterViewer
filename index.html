@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Data Format Converter - Base64, Base64URL, ArrayBuffer, JWT, UUID</title>
+    <meta name="description" content="Convert between Base64, Base64URL, ArrayBuffer, hex, text, JWT tokens, UUIDs, and URL encoding. Features auto-detection, validation, and entropy analysis.">
+    <meta name="keywords" content="base64, base64url, arraybuffer, converter, jwt, uuid, hex, binary, url encoding, developer tools">
+    <style>
+        :root {
+            color-scheme: light dark;
+            --primary-gradient: linear-gradient(135deg, light-dark(#667eea, #4c5fd9) 0%, light-dark(#764ba2, #5a3c7a) 100%);
+            --secondary-gradient: linear-gradient(135deg, light-dark(#f8f9fa, #2a2d3a) 0%, light-dark(#e9ecef, #3c3f52) 100%);
+            --success-color: light-dark(#28a745, #22c55e);
+            --warning-color: light-dark(#ffc107, #f59e0b);
+            --error-color: light-dark(#dc3545, #ef4444);
+            --info-color: light-dark(#17a2b8, #06b6d4);
+            --text-primary: light-dark(#333, #f1f5f9);
+            --text-secondary: light-dark(#666, #cbd5e1);
+            --border-color: light-dark(#e0e0e0, #475569);
+            --border-focus: light-dark(#667eea, #6366f1);
+            --background-main: light-dark(rgba(255, 255, 255, 0.95), rgba(30, 41, 59, 0.95));
+            --background-input: light-dark(white, #334155);
+            --background-result: light-dark(rgba(255,255,255,0.7), rgba(51, 65, 85, 0.7));
+            --shadow: 0 8px 32px light-dark(rgba(0,0,0,0.1), rgba(0,0,0,0.3));
+            --shadow-hover: 0 6px 20px light-dark(rgba(102, 126, 234, 0.3), rgba(99, 102, 241, 0.4));
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        .page {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            margin: 0;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: var(--background-main);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            border: 2px solid var(--border-color);
+        }
+
+        .header__title {
+            text-align: center;
+            color: var(--text-primary);
+            margin-bottom: 30px;
+            font-weight: 300;
+            font-size: 2.5em;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: light-dark(rgba(0,0,0,0.05), rgba(0,0,0,0.2));
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .controls__group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .controls__label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .controls__select, .controls__input {
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            background: var(--background-input);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .controls__select:focus, .controls__input:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px light-dark(rgba(102, 126, 234, 0.1), rgba(99, 102, 241, 0.2));
+        }
+
+        .input-section {
+            margin-bottom: 25px;
+        }
+
+        .input-section__textarea {
+            width: 100%;
+            height: 120px;
+            padding: 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+            transition: all 0.3s ease;
+            background: var(--background-input);
+            color: var(--text-primary);
+        }
+
+        .input-section__textarea:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px light-dark(rgba(102, 126, 234, 0.1), rgba(99, 102, 241, 0.2));
+        }
+
+        .btn {
+            padding: 12px 20px;
+            background: var(--primary-gradient);
+            colour: white;
+            border: 2px solid var(--border-focus);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn--convert {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn--copy {
+            background: var(--info-color);
+            border-color: var(--info-color);
+            font-size: 12px;
+            padding: 8px 12px;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            margin: 0;
+        }
+
+        .result {
+            background: var(--secondary-gradient);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            border: 2px solid var(--border-color);
+            border-left: 5px solid var(--border-focus);
+            box-shadow: 0 2px 10px light-dark(rgba(0,0,0,0.05), rgba(0,0,0,0.2));
+            position: relative;
+        }
+
+        .result__header {
+            margin: 0 0 10px 0;
+            color: var(--text-primary);
+            font-size: 1.1em;
+            display: flex;
+            align-items: centre;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .result__data-display {
+            word-break: break-all;
+            line-height: 1.8;
+            font-family: 'Courier New', monospace;
+            background: var(--background-result);
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .result__binary-display {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            word-break: break-all;
+            background: var(--background-result);
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .validation-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge--success { background: var(--success-color); colour: white; }
+        .badge--warning { background: var(--warning-color); colour: light-dark(#333, white); }
+        .badge--error { background: var(--error-color); colour: white; }
+        .badge--info { background: var(--info-color); colour: white; }
+
+        .result--error {
+            background: linear-gradient(135deg, light-dark(#fff5f5, #4c1d1d) 0%, light-dark(#fed7d7, #7f1d1d) 100%);
+            border-left-color: var(--error-color);
+            colour: light-dark(#742a2a, #fca5a5);
+        }
+
+        .info-text, .description {
+            font-size: 0.9em;
+            colour: var(--text-secondary);
+            margin-top: 8px;
+            font-style: italic;
+        }
+
+        .description--top {
+            margin-bottom: 5px;
+            margin-top: 0;
+        }
+
+        .entropy-bar {
+            width: 100%;
+            height: 8px;
+            background: light-dark(#e9ecef, #475569);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .entropy-bar__fill {
+            height: 100%;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .jwt-section {
+            display: grid;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .jwt-section__part {
+            padding: 15px;
+            background: var(--background-result);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .jwt-section__part-title {
+            margin: 0 0 10px 0;
+            colour: var(--text-primary);
+            font-size: 1em;
+        }
+
+        .footer {
+            text-align: centre;
+            margin-top: 40px;
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            colour: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .footer__link {
+            colour: var(--border-focus);
+            text-decoration: none;
+        }
+
+        .footer__link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            .header__title {
+                font-size: 2em;
+            }
+            .result__header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .btn--copy {
+                position: static;
+                margin-top: 10px;
+            }
+        }
+
+        .skip-link {
+            position: absolute;
+            top: -40px;
+            left: 6px;
+            background: var(--text-primary);
+            colour: var(--background-main);
+            padding: 8px;
+            text-decoration: none;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+
+        .skip-link:focus {
+            top: 6px;
+        }
+
+        @media (prefers-contrast: high) {
+            :root {
+                --border-color: light-dark(#000, #fff);
+                --text-secondary: light-dark(#000, #fff);
+            }
+            
+            .btn {
+                border-width: 3px;
+            }
+            
+            .container, .controls, .result, .jwt-section__part, .result__data-display, .result__binary-display {
+                border-width: 2px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body class="page">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+   
+    <div class="container">
+        <header>
+            <h1 class="header__title">🔄 Advanced Data Format Converter</h1>
+        </header>
+       
+        <main id="main-content">
+            <div class="controls">
+                <div class="controls__group">
+                    <label for="fromFormat" class="controls__label">Convert From:</label>
+                    <small class="description description--top">Select the format of your input data</small>
+                    <select id="fromFormat" class="controls__select" aria-describedby="fromFormatHelp">
+                        <option value="auto">🔍 Auto-Detect</option>
+                        <option value="text">Plain Text</option>
+                        <option value="base64">Base64</option>
+                        <option value="base64url">Base64URL</option>
+                        <option value="hex">Hex String</option>
+                        <option value="bytes">Byte Array</option>
+                        <option value="jwt">JWT Token</option>
+                        <option value="uuid">UUID</option>
+                        <option value="url">URL Encoded</option>
+                    </select>
+                </div>
+                <div class="controls__group">
+                    <label for="toFormat" class="controls__label">Convert To:</label>
+                    <small class="description description--top">Choose the desired output format</small>
+                    <select id="toFormat" class="controls__select" aria-describedby="toFormatHelp">
+                        <option value="base64">Base64</option>
+                        <option value="base64url">Base64URL</option>
+                        <option value="buffer">Buffer Details</option>
+                        <option value="hex">Hex String</option>
+                        <option value="text">Plain Text</option>
+                        <option value="jwt">JWT Analysis</option>
+                        <option value="uuid">UUID Analysis</option>
+                        <option value="url">URL Encoded</option>
+                        <option value="binary">Binary View</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-section">
+                <label for="input" class="controls__label">Input Data:</label>
+                <small class="description description--top">Enter the data you want to convert or analyse</small>
+                <textarea id="input" class="input-section__textarea" placeholder="Enter your data here..." aria-describedby="inputHelp"></textarea>
+                <div id="inputHelp" class="info-text">Enter data to analyse</div>
+                <div id="detectionResults" class="validation-badges" role="status" aria-live="polite"></div>
+            </div>
+
+            <button class="btn btn--convert" onclick="convert()" aria-describedby="convertHelp">🚀 Convert & Analyse</button>
+            <small id="convertHelp" class="info-text">Analyse and convert your data with validation and entropy analysis</small>
+
+            <output id="output" role="region" aria-label="Conversion results" aria-live="polite"></output>
+        </main>
+
+        <footer class="footer">
+            <p>Advanced Data Format Converter built by AI 🤖 with helpful human supervision from <a href="https://jackdomleo.dev" target="_blank" rel="noopener" class="footer__link">Jack Domleo</a> 😄</p>
+        </footer>
+    </div>
+
+    <script>
+        function detectFormat(input) {
+            const detections = [];
+           
+            if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*$/.test(input)) {
+                detections.push({ type: 'jwt', confidence: 0.9 });
+            }
+           
+            if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input)) {
+                detections.push({ type: 'uuid', confidence: 0.95 });
+            }
+           
+            if (/^[A-Za-z0-9_-]+$/.test(input) && input.length % 4 !== 1) {
+                detections.push({ type: 'base64url', confidence: 0.7 });
+            }
+           
+            if (/^[A-Za-z0-9+/]+=*$/.test(input) && input.length % 4 === 0) {
+                detections.push({ type: 'base64', confidence: 0.8 });
+            }
+           
+            if (/^[0-9a-fA-F\s]*$/.test(input.replace(/[^0-9a-fA-F]/g, '')) &&
+                input.replace(/[^0-9a-fA-F]/g, '').length % 2 === 0 &&
+                input.replace(/[^0-9a-fA-F]/g, '').length > 0) {
+                detections.push({ type: 'hex', confidence: 0.6 });
+            }
+           
+            if (/%[0-9a-fA-F]{2}/.test(input)) {
+                detections.push({ type: 'url', confidence: 0.8 });
+            }
+           
+            if (/^\s*\d+(\s*,\s*\d+)*\s*$/.test(input)) {
+                detections.push({ type: 'bytes', confidence: 0.7 });
+            }
+           
+            if (detections.length === 0) {
+                detections.push({ type: 'text', confidence: 0.5 });
+            }
+           
+            return detections.sort((a, b) => b.confidence - a.confidence);
+        }
+
+        function validateFormat(input, format) {
+            const issues = [];
+           
+            switch (format) {
+                case 'base64':
+                    if (input.length % 4 !== 0) issues.push('Invalid Base64 padding');
+                    if (!/^[A-Za-z0-9+/=]*$/.test(input)) issues.push('Invalid Base64 characters');
+                    break;
+                case 'base64url':
+                    if (input.length % 4 === 1) issues.push('Invalid Base64URL length');
+                    if (!/^[A-Za-z0-9_-]*$/.test(input)) issues.push('Invalid Base64URL characters');
+                    break;
+                case 'hex':
+                    const hexOnly = input.replace(/[^0-9a-fA-F]/g, '');
+                    if (hexOnly.length % 2 !== 0) issues.push('Odd number of hex characters');
+                    break;
+                case 'jwt':
+                    const parts = input.split('.');
+                    if (parts.length !== 3) issues.push('JWT must have 3 parts separated by dots');
+                    break;
+                case 'uuid':
+                    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input)) {
+                        issues.push('Invalid UUID format');
+                    }
+                    break;
+            }
+           
+            return issues;
+        }
+
+        function calculateEntropy(data) {
+            const frequencies = {};
+            for (let i = 0; i < data.length; i++) {
+                const byte = data[i];
+                frequencies[byte] = (frequencies[byte] || 0) + 1;
+            }
+           
+            let entropy = 0;
+            const length = data.length;
+           
+            for (const freq of Object.values(frequencies)) {
+                const p = freq / length;
+                entropy -= p * Math.log2(p);
+            }
+           
+            return entropy;
+        }
+
+        function analyseDataStructure(text) {
+            const hints = [];
+           
+            try {
+                JSON.parse(text);
+                hints.push('Valid JSON structure');
+            } catch (e) {
+                // Not JSON
+            }
+           
+            if (text.includes('<?xml') || /<[^>]+>/.test(text)) {
+                hints.push('Appears to be XML/HTML');
+            }
+           
+            if (/^-----BEGIN/.test(text)) {
+                hints.push('PEM encoded certificate/key');
+            }
+           
+            if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+                hints.push('Contains ISO date format');
+            }
+           
+            if (/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/.test(text)) {
+                hints.push('Contains IP addresses');
+            }
+           
+            return hints;
+        }
+
+        async function copyToClipboard(text, button) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const originalText = button.textContent;
+                button.textContent = '✓ Copied!';
+                button.style.background = 'var(--success-color)';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = 'var(--info-color)';
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                button.textContent = '✗ Failed';
+                button.style.background = 'var(--error-color)';
+                setTimeout(() => {
+                    button.textContent = '📋 Copy';
+                    button.style.background = 'var(--info-color)';
+                }, 2000);
+            }
+        }
+
+        function stringToArrayBuffer(str) {
+            const encoder = new TextEncoder();
+            return encoder.encode(str).buffer;
+        }
+
+        function arrayBufferToString(buffer) {
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(buffer);
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function base64URLToArrayBuffer(base64url) {
+            let padded = base64url + '='.repeat((4 - (base64url.length % 4)) % 4);
+            padded = padded.replace(/-/g, '+').replace(/_/g, '/');
+            return base64ToArrayBuffer(padded);
+        }
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
+        function arrayBufferToBase64URL(buffer) {
+            const base64 = arrayBufferToBase64(buffer);
+            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+
+        function hexToArrayBuffer(hex) {
+            hex = hex.replace(/[^0-9a-fA-F]/g, '');
+            if (hex.length % 2 !== 0) {
+                throw new Error('Hex string must have even length');
+            }
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+            }
+            return bytes.buffer;
+        }
+
+        function arrayBufferToHex(buffer) {
+            const bytes = new Uint8Array(buffer);
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function bytesToArrayBuffer(byteString) {
+            const numbers = byteString.split(',').map(s => parseInt(s.trim()));
+            const bytes = new Uint8Array(numbers);
+            return bytes.buffer;
+        }
+
+        function parseJWT(token) {
+            const parts = token.split('.');
+            if (parts.length !== 3) {
+                throw new Error('Invalid JWT format');
+            }
+           
+            const header = JSON.parse(arrayBufferToString(base64URLToArrayBuffer(parts[0])));
+            const payload = JSON.parse(arrayBufferToString(base64URLToArrayBuffer(parts[1])));
+           
+            return { header, payload, signature: parts[2] };
+        }
+
+        function parseUUID(uuid) {
+            const hex = uuid.replace(/-/g, '');
+            const version = parseInt(hex[12], 16);
+            const variant = parseInt(hex[16], 16);
+           
+            let variantType = 'Unknown';
+            if ((variant & 0x8) === 0) variantType = 'NCS';
+            else if ((variant & 0xC) === 0x8) variantType = 'RFC 4122';
+            else if ((variant & 0xE) === 0xC) variantType = 'Microsoft';
+            else if ((variant & 0xE) === 0xE) variantType = 'Reserved';
+           
+            return {
+                version,
+                variant: variantType,
+                hex: hex,
+                timeLow: hex.substring(0, 8),
+                timeMid: hex.substring(8, 12),
+                timeHiAndVersion: hex.substring(12, 16),
+                clockSeq: hex.substring(16, 20),
+                node: hex.substring(20, 32)
+            };
+        }
+
+        function arrayBufferToBinary(buffer) {
+            const bytes = new Uint8Array(buffer);
+            return Array.from(bytes).map(b =>
+                b.toString(2).padStart(8, '0')
+            ).join(' ');
+        }
+
+        function getEntropyDescription(entropy) {
+            if (entropy > 7) return 'High entropy (likely encrypted/random data)';
+            if (entropy > 5) return 'Medium entropy (compressed/encoded data)';
+            if (entropy > 3) return 'Low entropy (structured text data)';
+            return 'Very low entropy (repetitive or simple data)';
+        }
+
+        function updateInputInfo() {
+            const input = document.getElementById('input').value.trim();
+            const fromFormat = document.getElementById('fromFormat').value;
+            const toFormat = document.getElementById('toFormat').value;
+            const infoElement = document.getElementById('inputHelp');
+            const detectionElement = document.getElementById('detectionResults');
+           
+            if (!input) {
+                infoElement.textContent = 'Enter data to analyse';
+                detectionElement.innerHTML = '';
+                return;
+            }
+           
+            if (fromFormat === 'auto') {
+                const detections = detectFormat(input);
+                let badges = '';
+               
+                detections.forEach((detection, index) => {
+                    const confidence = Math.round(detection.confidence * 100);
+                    const badgeClass = index === 0 ? 'success' : confidence > 70 ? 'info' : 'warning';
+                    badges += `<span class="badge badge--${badgeClass}" title="${confidence}% confidence">${detection.type.toUpperCase()} (${confidence}%)</span>`;
+                });
+               
+                detectionElement.innerHTML = badges;
+            } else {
+                detectionElement.innerHTML = '';
+            }
+           
+            const actualFormat = fromFormat === 'auto' ? detectFormat(input)[0].type : fromFormat;
+            const validation = validateFormat(input, actualFormat);
+           
+            if (validation.length > 0) {
+                detectionElement.innerHTML += validation.map(issue =>
+                    `<span class="badge badge--error">${issue}</span>`
+                ).join('');
+            }
+           
+            infoElement.textContent = `Converting from ${actualFormat.toUpperCase()} to ${toFormat.toUpperCase()}`;
+        }
+
+        function convert() {
+            const input = document.getElementById('input').value.trim();
+            const fromFormat = document.getElementById('fromFormat').value;
+            const toFormat = document.getElementById('toFormat').value;
+            const output = document.getElementById('output');
+
+            if (!input) {
+                output.innerHTML = '<div class="result result--error"><h3 class="result__header">❌ Error</h3>Please enter some input data.</div>';
+                return;
+            }
+
+            try {
+                const actualFromFormat = fromFormat === 'auto' ? detectFormat(input)[0].type : fromFormat;
+               
+                const validation = validateFormat(input, actualFromFormat);
+                if (validation.length > 0 && !input.includes('example')) {
+                    console.warn('Validation issues:', validation);
+                }
+
+                let buffer;
+                let originalData = input;
+               
+                switch (actualFromFormat) {
+                    case 'text':
+                        buffer = stringToArrayBuffer(input);
+                        break;
+                    case 'base64':
+                        buffer = base64ToArrayBuffer(input);
+                        break;
+                    case 'base64url':
+                        buffer = base64URLToArrayBuffer(input);
+                        break;
+                    case 'hex':
+                        buffer = hexToArrayBuffer(input);
+                        break;
+                    case 'bytes':
+                        buffer = bytesToArrayBuffer(input);
+                        break;
+                    case 'jwt':
+                        buffer = stringToArrayBuffer(input);
+                        break;
+                    case 'uuid':
+                        buffer = stringToArrayBuffer(input);
+                        break;
+                    case 'url':
+                        const decoded = decodeURIComponent(input);
+                        buffer = stringToArrayBuffer(decoded);
+                        originalData = decoded;
+                        break;
+                    default:
+                        throw new Error('Unsupported input format');
+                }
+
+                let result = '';
+                let displayInfo = '';
+               
+                switch (toFormat) {
+                    case 'text':
+                        result = arrayBufferToString(buffer);
+                        displayInfo = 'Decoded as UTF-8 text';
+                        break;
+                    case 'base64':
+                        result = arrayBufferToBase64(buffer);
+                        displayInfo = 'Standard Base64 encoding with padding';
+                        break;
+                    case 'base64url':
+                        result = arrayBufferToBase64URL(buffer);
+                        displayInfo = 'URL-safe Base64 encoding (no padding, - and _ instead of + and /)';
+                        break;
+                    case 'hex':
+                        result = arrayBufferToHex(buffer);
+                        displayInfo = 'Hexadecimal representation';
+                        break;
+                    case 'url':
+                        result = encodeURIComponent(arrayBufferToString(buffer));
+                        displayInfo = 'URL percent-encoded';
+                        break;
+                    case 'binary':
+                        result = arrayBufferToBinary(buffer);
+                        displayInfo = 'Binary representation (8 bits per byte)';
+                        break;
+                    case 'jwt':
+                        if (actualFromFormat === 'jwt') {
+                            const parsed = parseJWT(input);
+                            const entropy = calculateEntropy(new Uint8Array(buffer));
+                           
+                            result = `
+                                <div class="jwt-section">
+                                    <div class="jwt-section__part">
+                                        <h4 class="jwt-section__part-title">🔐 Header</h4>
+                                        <small class="description">JWT header containing algorithm and token type information</small>
+                                        <div class="result__data-display">${JSON.stringify(parsed.header, null, 2)}</div>
+                                        <button class="btn btn--copy" onclick="copyToClipboard('${JSON.stringify(parsed.header).replace(/'/g, "\\'")}', this)">📋 Copy</button>
+                                    </div>
+                                    <div class="jwt-section__part">
+                                        <h4 class="jwt-section__part-title">📄 Payload</h4>
+                                        <small class="description">JWT payload containing claims and user data</small>
+                                        <div class="result__data-display">${JSON.stringify(parsed.payload, null, 2)}</div>
+                                        <button class="btn btn--copy" onclick="copyToClipboard('${JSON.stringify(parsed.payload).replace(/'/g, "\\'")}', this)">📋 Copy</button>
+                                    </div>
+                                    <div class="jwt-section__part">
+                                        <h4 class="jwt-section__part-title">✍️ Signature</h4>
+                                        <small class="description">JWT signature for verifying token authenticity</small>
+                                        <div class="result__data-display">${parsed.signature}</div>
+                                        <button class="btn btn--copy" onclick="copyToClipboard('${parsed.signature}', this)">📋 Copy</button>
+                                    </div>
+                                    <div class="jwt-section__part">
+                                        <h4 class="jwt-section__part-title">📊 Analysis</h4>
+                                        <small class="description">Detailed analysis of the JWT token properties</small>
+                                        <p><strong>Algorithm:</strong> ${parsed.header.alg || 'Not specified'}</p>
+                                        <p><strong>Type:</strong> ${parsed.header.typ || 'Not specified'}</p>
+                                        ${parsed.payload.exp ? `<p><strong>Expires:</strong> ${new Date(parsed.payload.exp * 1000).toLocaleString()}</p>` : ''}
+                                        ${parsed.payload.iat ? `<p><strong>Issued:</strong> ${new Date(parsed.payload.iat * 1000).toLocaleString()}</p>` : ''}
+                                        <p><strong>Token Entropy:</strong> ${entropy.toFixed(2)} bits per byte</p>
+                                        <small class="description">Entropy measures data randomness: 0-8 bits per byte (${getEntropyDescription(entropy)})</small>
+                                        <div class="entropy-bar">
+                                            <div class="entropy-bar__fill" style="width: ${(entropy/8)*100}%; background: ${entropy > 6 ? 'var(--success-color)' : entropy > 4 ? 'var(--warning-color)' : 'var(--error-color)'}"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            output.innerHTML = result;
+                            return;
+                        } else {
+                            result = 'Input is not a valid JWT token';
+                            displayInfo = 'JWT analysis requires JWT input format';
+                        }
+                        break;
+                    case 'uuid':
+                        if (actualFromFormat === 'uuid') {
+                            const parsed = parseUUID(input);
+                            result = `
+                                <div class="jwt-section">
+                                    <div class="jwt-section__part">
+                                        <h4 class="jwt-section__part-title">🔍 UUID Analysis</h4>
+                                        <small class="description">Analysis of UUID structure and metadata</small>
+                                        <p><strong>Version:</strong> ${parsed.version}</p>
+                                        <p><strong>Variant:</strong> ${parsed.variant}</p>
+                                        <p><strong>Hex:</strong> ${parsed.hex}</p>
+                                    </div>
+                                    <div class="jwt-section__part">
+                                        <h4 class="jwt-section__part-title">🧩 Components</h4>
+                                        <small class="description">Breakdown of UUID internal structure</small>
+                                        <p><strong>Time Low:</strong> ${parsed.timeLow}</p>
+                                        <p><strong>Time Mid:</strong> ${parsed.timeMid}</p>
+                                        <p><strong>Time Hi & Version:</strong> ${parsed.timeHiAndVersion}</p>
+                                        <p><strong>Clock Sequence:</strong> ${parsed.clockSeq}</p>
+                                        <p><strong>Node:</strong> ${parsed.node}</p>
+                                        <button class="btn btn--copy" onclick="copyToClipboard('${parsed.hex}', this)">📋 Copy Hex</button>
+                                    </div>
+                                </div>
+                            `;
+                            output.innerHTML = result;
+                            return;
+                        } else {
+                            result = 'Input is not a valid UUID';
+                            displayInfo = 'UUID analysis requires UUID input format';
+                        }
+                        break;
+                    case 'buffer':
+                        const bufferBytes = new Uint8Array(buffer);
+                        const entropy = calculateEntropy(bufferBytes);
+                        const textPreview = arrayBufferToString(buffer);
+                        const structureHints = analyseDataStructure(textPreview);
+                       
+                        result = `
+                            <div class="result">
+                                <h3 class="result__header">📊 Buffer Details <button class="btn btn--copy" onclick="copyToClipboard('${arrayBufferToHex(buffer)}', this)">📋 Copy Hex</button></h3>
+                                <small class="description">Detailed analysis of the data buffer including size, entropy, and structure</small>
+                                <strong>Size:</strong> ${buffer.byteLength} bytes<br>
+                                <strong>Entropy:</strong> ${entropy.toFixed(2)} bits per byte
+                                <small class="description">Entropy measures data randomness: 0-8 bits per byte (${getEntropyDescription(entropy)})</small>
+                                <div class="entropy-bar">
+                                    <div class="entropy-bar__fill" style="width: ${(entropy/8)*100}%; background: ${entropy > 6 ? 'var(--success-color)' : entropy > 4 ? 'var(--warning-color)' : 'var(--error-color)'}"></div>
+                                </div>
+                            </div>
+                            <div class="result">
+                                <strong>Decimal bytes:</strong>
+                                <small class="description">Data represented as decimal byte values</small>
+                                <button class="btn btn--copy" onclick="copyToClipboard('[${Array.from(bufferBytes).join(', ')}]', this)">📋 Copy</button>
+                                <div class="result__data-display">[${Array.from(bufferBytes).join(', ')}]</div>
+                            </div>
+                            <div class="result">
+                                <strong>Hexadecimal bytes:</strong>
+                                <small class="description">Data represented as hexadecimal byte values with 0x prefix</small>
+                                <button class="btn btn--copy" onclick="copyToClipboard('[${Array.from(bufferBytes).map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ')}]', this)">📋 Copy</button>
+                                <div class="result__data-display">[${Array.from(bufferBytes).map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ')}]</div>
+                            </div>
+                            <div class="result">
+                                <strong>Hex string:</strong>
+                                <small class="description">Concatenated hexadecimal representation</small>
+                                <button class="btn btn--copy" onclick="copyToClipboard('${Array.from(bufferBytes).map(b => b.toString(16).padStart(2, '0')).join('')}', this)">📋 Copy</button>
+                                <div class="result__data-display">${Array.from(bufferBytes).map(b => b.toString(16).padStart(2, '0')).join('')}</div>
+                            </div>
+                            <div class="result">
+                                <strong>Binary view:</strong>
+                                <small class="description">Data shown in binary format (8 bits per byte)</small>
+                                <button class="btn btn--copy" onclick="copyToClipboard('${arrayBufferToBinary(buffer)}', this)">📋 Copy</button>
+                                <div class="result__binary-display">${arrayBufferToBinary(buffer)}</div>
+                            </div>
+                            ${structureHints.length > 0 ? `
+                            <div class="result">
+                                <strong>🔍 Data Structure Hints:</strong>
+                                <small class="description">Detected patterns and formats in the data</small><br>
+                                ${structureHints.map(hint => `<span class="badge badge--info">${hint}</span>`).join(' ')}
+                            </div>
+                            ` : ''}
+                        `;
+                        output.innerHTML = result;
+                        return;
+                    default:
+                        throw new Error('Unsupported output format');
+                }
+
+                const entropy = calculateEntropy(new Uint8Array(buffer));
+                const structureHints = toFormat === 'text' ? analyseDataStructure(result) : [];
+               
+                output.innerHTML = `
+                    <div class="result">
+                        <h3 class="result__header">✅ Conversion Result
+                            <button class="btn btn--copy" onclick="copyToClipboard(\`${result.replace(/`/g, '\\`')}\`, this)">📋 Copy</button>
+                        </h3>
+                        <small class="description">Successfully converted data with analysis</small>
+                        <strong>From:</strong> ${actualFromFormat.toUpperCase()} → <strong>To:</strong> ${toFormat.toUpperCase()}<br>
+                        <strong>Size:</strong> ${buffer.byteLength} bytes | <strong>Entropy:</strong> ${entropy.toFixed(2)} bits per byte
+                        <small class="description">Entropy measures data randomness: 0-8 bits per byte (${getEntropyDescription(entropy)})</small>
+                        <div class="entropy-bar">
+                            <div class="entropy-bar__fill" style="width: ${(entropy/8)*100}%; background: ${entropy > 6 ? 'var(--success-color)' : entropy > 4 ? 'var(--warning-color)' : 'var(--error-color)'}"></div>
+                        </div>
+                        <div class="result__data-display">${toFormat === 'binary' ? result : result}</div>
+                        <div class="info-text">${displayInfo}</div>
+                        ${structureHints.length > 0 ? `
+                        <div style="margin-top: 10px;">
+                            <strong>🔍 Structure hints:</strong>
+                            <small class="description">Detected patterns and formats in the converted data</small><br>
+                            ${structureHints.map(hint => `<span class="badge badge--info">${hint}</span>`).join(' ')}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+
+            } catch (error) {
+                output.innerHTML = `<div class="result result--error"><h3 class="result__header">❌ Error</h3><small class="description">An error occurred during conversion</small><p>${error.message}</p></div>`;
+            }
+        }
+
+        document.getElementById('fromFormat').addEventListener('change', updateInputInfo);
+        document.getElementById('toFormat').addEventListener('change', updateInputInfo);
+        document.getElementById('input').addEventListener('input', updateInputInfo);
+
+        updateInputInfo();
+    </script>
+</body>
+</html>
